@@ -166,14 +166,22 @@ Ext.define('CustomApp', {
             store: store,
             columnCfgs: [
                 {text:'User',dataIndex:'user'},
-                {text:'Task ID', dataIndex: 'task_fid' },
-                {text:'Task Name', dataIndex: 'task_name'},
-                {text:'WorkProduct ID', dataIndex: 'workproduct_fid'},
-                {text:'WorkProduct Name', dataIndex: 'workproduct_name'},
-                {text:'Feature ID', dataIndex: 'feature_fid'},
-                {text:'Feature Name', dataIndex: 'feature_name'},
-                {text:'Initiative ID', dataIndex: 'initiative_fid'},
-                {text:'Initiative Name', dataIndex: 'initiative_name'},
+                {text:'Task', columns:[
+                    {text:'ID', dataIndex: 'task_fid', sortable: true, menuDisabled: true },
+                    {text:'Name', dataIndex: 'task_name', sortable: true, menuDisabled: true}
+                ]},
+                {text:'WorkProduct',columns:[
+                    {text:'ID', dataIndex: 'workproduct_fid', sortable: true, menuDisabled: true},
+                    {text:'Name', dataIndex: 'workproduct_name', sortable: true, menuDisabled: true}
+                ]},
+                {text:'Feature',columns:[
+                    {text:'ID', dataIndex: 'feature_fid', sortable: true, menuDisabled: true},
+                    {text:'Name', dataIndex: 'feature_name', sortable: true, menuDisabled: true}
+                ]},
+                {text:'Initiative',columns:[
+                    {text:'ID', dataIndex: 'initiative_fid', sortable: true, menuDisabled: true},
+                    {text:'Name', dataIndex: 'initiative_name', sortable: true, menuDisabled: true}
+                ]},
                 {text:'Hours', dataIndex:'total'}
             ]
         });

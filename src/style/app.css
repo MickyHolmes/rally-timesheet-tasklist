@@ -5,3 +5,8 @@
     right:0px;
     width:5%;
 }
+
+div.x-column-header-inner {
+    width:175px;
+    text-align:center;
+}
