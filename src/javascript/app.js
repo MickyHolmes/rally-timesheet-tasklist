@@ -112,7 +112,8 @@ Ext.define('CustomApp', {
                     {property:'TimeEntryItem.WeekStartDate',operator:'<=',value:end_date},
                     {property:'TimeEntryItem.Task',operator:'!=',value:''}
                 ],
-                fetch: ['User','UserName','ObjectID','Hours','TimeEntryItem','Task','FormattedID','Name'],
+                fetch: ['User','UserName','ObjectID','Hours','TimeEntryItem','Task','FormattedID',
+                    'Name','WorkProduct','Feature','Parent'],
                 listeners: {
                     scope: this,
                     load: function(store,records){
@@ -120,15 +121,10 @@ Ext.define('CustomApp', {
                         var tasks_by_user = {}; // key is FormattedID_UserObjectID
                         Ext.Array.each( records, function(record) {
                             me.logger.log(' time: ',record);
-                            
-                            var key = record.get('TimeEntryItem').Task.FormattedID + "_" + record.get('TimeEntryItem').User.ObjectID;
+                            var time_entry_item = record.get('TimeEntryItem');
+                            var key = time_entry_item.Task.FormattedID + "_" + time_entry_item.User.ObjectID;
                             if ( ! tasks_by_user[key] ) {
-                                tasks_by_user[key] = {
-                                    total: 0,
-                                    user: record.get('TimeEntryItem').User.UserName,
-                                    task_fid: record.get('TimeEntryItem').Task.FormattedID,
-                                    task_name: record.get('TimeEntryItem').Task.Name
-                                };
+                                tasks_by_user[key] = me._getObjectFromTimeValue( record );
                             }   
                             var hours = record.get('Hours') || 0;
                             tasks_by_user[key].total = tasks_by_user[key].total + hours;
@@ -139,6 +135,21 @@ Ext.define('CustomApp', {
                 }
             });
         }
+    },
+    _getObjectFromTimeValue: function(record){
+        var time_entry_item = record.get('TimeEntryItem');
+        var workproduct = time_entry_item.WorkProduct || { FormattedID: "", Name: "" };
+        var feature = workproduct.Feature || { FormattedID: "", Name: "" };
+        return {
+            total: 0,
+            user: time_entry_item.User.UserName,
+            task_fid: time_entry_item.Task.FormattedID,
+            task_name: time_entry_item.Task.Name,
+            workproduct_fid: workproduct.FormattedID,
+            workproduct_name: workproduct.Name,
+            feature_fid: feature.FormattedID,
+            feature_name: feature.Name
+        };
     },
     _makeGrid: function(tasks_by_user) {
         this.logger.log("_makeGrid", tasks_by_user);
@@ -154,6 +165,8 @@ Ext.define('CustomApp', {
                 {text:'User',dataIndex:'user'},
                 {text:'Task ID', dataIndex: 'task_fid' },
                 {text:'Task Name', dataIndex: 'task_name'},
+                {text:'WorkProduct ID', dataIndex: 'workproduct_fid'},
+                {text:'WorkProduct Name', dataIndex: 'workproduct_name'},
                 {text:'Total', dataIndex:'total'}
             ]
         });

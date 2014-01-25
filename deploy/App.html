@@ -3,11 +3,11 @@
 <head>
     <title>Task Time Summary</title>
     <!--  (c) 2014 Rally Software Development Corp.  All Rights Reserved. -->
-    <!--  Build Date: Sat Jan 25 2014 10:26:45 GMT-0800 (PST) -->
+    <!--  Build Date: Sat Jan 25 2014 13:10:26 GMT-0800 (PST) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Sat Jan 25 2014 10:26:45 GMT-0800 (PST)";
-        var CHECKSUM = 2041502460;
+        var APP_BUILD_DATE = "Sat Jan 25 2014 13:10:26 GMT-0800 (PST)";
+        var CHECKSUM = 4806769038;
     </script>
     
     <script type="text/javascript" src="/apps/2.0rc2/sdk.js"></script>
@@ -154,6 +154,7 @@ Ext.define('CustomApp', {
         this._addDateSelectors();
     },
     _addDateSelectors: function() {
+        var me = this;
         var start_selector = this.down('#date_selector_box').add({
             xtype:'rallydatefield',
             itemId:'start_date_selector',
@@ -197,6 +198,29 @@ Ext.define('CustomApp', {
         var start_of_week_here = Ext.Date.add(js_date, Ext.Date.DAY, -1 * js_date.getDay());
         return start_of_week_here;
     },
+    _getTimeRange: function() {
+        this.logger.log("_getTimeRange");
+        var start_selector = this.down('#start_date_selector');
+        var end_selector = this.down('#end_date_selector');
+        
+        if ( ! end_selector || ! start_selector ) {
+            return [];
+        }
+        
+        var start = start_selector.getValue();
+        var end = end_selector.getValue();
+                
+        if ( ! start || ! end ) {
+            return [];
+        }
+        
+        if ( start > end ) { 
+            start_selector.setValue(end);
+            return [];
+        }
+        
+        return [start,end];
+    },
     _mask: function(text) {
         var me = this;
         setTimeout(function(){
@@ -214,8 +238,86 @@ Ext.define('CustomApp', {
             this.logger.log("  Start/End ", start_end);
             var first_week = start_end[0];
             var last_week = start_end[1];
+        
+            if ( this.grid ) { this.grid.destroy(); }
+            var start_date = Rally.util.DateTime.toIsoString(first_week,true).replace(/T.*$/,"T00:00:00.000Z");
+            var end_date = Rally.util.DateTime.toIsoString(last_week,true).replace(/T.*$/,"T00:00:00.000Z");
             
+            Ext.create('Rally.data.wsapi.Store',{
+                autoLoad: true,
+                model:'TimeEntryValue',
+                filters: [
+                    {property:'TimeEntryItem.WeekStartDate',operator:'>=',value:start_date},
+                    {property:'TimeEntryItem.WeekStartDate',operator:'<=',value:end_date},
+                    {property:'TimeEntryItem.Task',operator:'!=',value:''}
+                ],
+                fetch: ['User','UserName','ObjectID','Hours','TimeEntryItem','Task','FormattedID',
+                    'Name','WorkProduct','Feature','Parent'],
+                listeners: {
+                    scope: this,
+                    load: function(store,records){
+                        var me = this;
+                        var tasks_by_user = {}; // key is FormattedID_UserObjectID
+                        Ext.Array.each( records, function(record) {
+                            me.logger.log(' time: ',record);
+                            var time_entry_item = record.get('TimeEntryItem');
+                            var key = time_entry_item.Task.FormattedID + "_" + time_entry_item.User.ObjectID;
+                            if ( ! tasks_by_user[key] ) {
+                                tasks_by_user[key] = me._getObjectFromTimeValue( record );
+                            }   
+                            var hours = record.get('Hours') || 0;
+                            tasks_by_user[key].total = tasks_by_user[key].total + hours;
+                        });
+                        
+                        this._makeGrid(tasks_by_user);
+                    }
+                }
+            });
         }
+    },
+    _getObjectFromTimeValue: function(record){
+        var time_entry_item = record.get('TimeEntryItem');
+        var workproduct = time_entry_item.WorkProduct || { FormattedID: "", Name: "" };
+        var feature = workproduct.Feature || { FormattedID: "", Name: "" };
+        return {
+            total: 0,
+            user: time_entry_item.User.UserName,
+            task_fid: time_entry_item.Task.FormattedID,
+            task_name: time_entry_item.Task.Name,
+            workproduct_fid: workproduct.FormattedID,
+            workproduct_name: workproduct.Name,
+            feature_fid: feature.FormattedID,
+            feature_name: feature.Name
+        };
+    },
+    _makeGrid: function(tasks_by_user) {
+        this.logger.log("_makeGrid", tasks_by_user);
+        var me = this;
+        var store = Ext.create('Rally.data.custom.Store',{
+            data: me._hashToArray(tasks_by_user)
+        });
+        
+        this.grid = this.down('#grid_box').add({
+            xtype:'rallygrid',
+            store: store,
+            columnCfgs: [
+                {text:'User',dataIndex:'user'},
+                {text:'Task ID', dataIndex: 'task_fid' },
+                {text:'Task Name', dataIndex: 'task_name'},
+                {text:'WorkProduct ID', dataIndex: 'workproduct_fid'},
+                {text:'WorkProduct Name', dataIndex: 'workproduct_name'},
+                {text:'Total', dataIndex:'total'}
+            ]
+        });
+        
+        me._unmask();
+    },
+    _hashToArray: function(hash) {
+        var result_array = [];
+        Ext.Object.each(hash, function(key,value){
+            result_array.push(value);
+        });
+        return result_array;
     }
 });
 
