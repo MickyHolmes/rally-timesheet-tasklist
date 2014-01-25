@@ -140,6 +140,7 @@ Ext.define('CustomApp', {
         var time_entry_item = record.get('TimeEntryItem');
         var workproduct = time_entry_item.WorkProduct || { FormattedID: "", Name: "" };
         var feature = workproduct.Feature || { FormattedID: "", Name: "" };
+        var initiative = feature.Parent || { FormattedID: "", Name: "" };
         return {
             total: 0,
             user: time_entry_item.User.UserName,
@@ -148,7 +149,9 @@ Ext.define('CustomApp', {
             workproduct_fid: workproduct.FormattedID,
             workproduct_name: workproduct.Name,
             feature_fid: feature.FormattedID,
-            feature_name: feature.Name
+            feature_name: feature.Name,
+            initiative_fid: initiative.FormattedID,
+            initiative_name: initiative.Name
         };
     },
     _makeGrid: function(tasks_by_user) {
@@ -167,7 +170,11 @@ Ext.define('CustomApp', {
                 {text:'Task Name', dataIndex: 'task_name'},
                 {text:'WorkProduct ID', dataIndex: 'workproduct_fid'},
                 {text:'WorkProduct Name', dataIndex: 'workproduct_name'},
-                {text:'Total', dataIndex:'total'}
+                {text:'Feature ID', dataIndex: 'feature_fid'},
+                {text:'Feature Name', dataIndex: 'feature_name'},
+                {text:'Initiative ID', dataIndex: 'initiative_fid'},
+                {text:'Initiative Name', dataIndex: 'initiative_name'},
+                {text:'Hours', dataIndex:'total'}
             ]
         });
         
