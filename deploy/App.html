@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Task Time Summary</title>
+    <!--  (c) 2014 Rally Software Development Corp.  All Rights Reserved. -->
+    <!--  Build Date: Sat Jan 25 2014 10:26:45 GMT-0800 (PST) -->
+    
+    <script type="text/javascript">
+        var APP_BUILD_DATE = "Sat Jan 25 2014 10:26:45 GMT-0800 (PST)";
+        var CHECKSUM = 2041502460;
+    </script>
+    
+    <script type="text/javascript" src="/apps/2.0rc2/sdk.js"></script>
+
+    <script type="text/javascript">
+        Rally.onReady(function() {
+             
+/**
+ * A link that pops up a version dialog box
+ */
+
+Ext.define('Rally.technicalservices.InfoLink',{
+    extend: 'Ext.Component',
+    alias: 'widget.tsinfolink',
+    
+    /**
+     * @cfg {String} informationHtml
+     * Additional text to be displayed on the popup dialog (for exmaple,
+     * to add a description of the app's use or functionality)
+     */
+    informationHtml: null,
+    
+    /**
+     * 
+     * cfg {String} title
+     * The title for the dialog box
+     */
+     title: "Information",
+    
+    renderTpl: "<div id='{id}-infolinkWrap' class='tsinfolink'>TS</div>",
+
+    initComponent: function() {
+        this.callParent(arguments);
+       
+    },
+    
+    onRender: function() {
+        this.callParent(arguments);
+        this.mon(this.el,'click',this.onClick,this);
+    },
+    _generateChecksum: function(string){
+        var chk = 0x12345678,
+            i;
+        string = string.replace(/var CHECKSUM = .*;/,"");
+        
+        for (i = 0; i < string.length; i++) {
+            chk += (string.charCodeAt(i) * i);
+        }
+    
+        return chk;
+    },
+    _checkChecksum: function(container) {
+        var me = this;
+        Ext.Ajax.request({
+            url: document.URL,
+            params: {
+                id: 1
+            },
+            success: function (response) {
+                text = response.responseText;
+                if ( CHECKSUM ) {
+                    if ( CHECKSUM !== me._generateChecksum(text) ) {
+                        console.log("Checksums don't match!");
+                        if ( me.dialog ) {
+                            me.dialog.add({xtype:'container',html:'Checksums do not match'});
+                        }
+                    }
+                }
+            }
+        });
+    },
+    onClick: function(e) {
+        var me = this;
+        this._checkChecksum(this);
+        
+        var dialog_items = [];
+        
+        if ( this.informationHtml ) {
+            dialog_items.push({
+                xtype:'container',
+                html: this.informationHtml
+            });
+        }
+                
+        dialog_items.push({
+            xtype:'container',
+            html:"This app was created by the Rally Technical Services Team."
+        });
+        
+        if ( APP_BUILD_DATE ) {
+            dialog_items.push({
+                xtype:'container',
+                html:'Build date/time: ' + APP_BUILD_DATE
+            });
+        }
+        
+        if (this.dialog){this.dialog.destroy();}
+        this.dialog = Ext.create('Rally.ui.dialog.Dialog',{
+            defaults: { padding: 5, margin: 5 },
+            closable: true,
+            draggable: true,
+            title: me.title,
+            items: dialog_items
+        });
+        this.dialog.show();
+    }
+});
+
+/*
+ */
+Ext.define('Rally.technicalservices.Logger',{
+    constructor: function(config){
+        Ext.apply(this,config);
+    },
+    log: function(args){
+        var timestamp = "[ " + Ext.util.Format.date(new Date(), "Y-m-d H:i:s.u") + " ]";
+        //var output_args = arguments;
+        //output_args.unshift( [ "[ " + timestamp + " ]" ] );
+        //output_args = Ext.Array.push(output_args,arguments);
+        
+        var output_args = [];
+        output_args = Ext.Array.push(output_args,[timestamp]);
+        output_args = Ext.Array.push(output_args, Ext.Array.slice(arguments,0));
+
+        window.console && console.log.apply(console,output_args);
+    }
+
+});
+
+Ext.define('CustomApp', {
+    extend: 'Rally.app.App',
+    componentCls: 'app',
+
+    logger: new Rally.technicalservices.Logger(),
+    items: [
+        {xtype:'container', defaults: { margin: 5, padding: 5 }, layout: { type: 'hbox' }, items:[
+            {xtype:'container',itemId:'date_selector_box'}, 
+            {xtype:'container',itemId:'save_button_box'}
+        ]},
+        {xtype:'container',itemId:'grid_box'},
+        {xtype:'tsinfolink'}
+    ],
+    launch: function() {
+        this._addDateSelectors();
+    },
+    _addDateSelectors: function() {
+        var start_selector = this.down('#date_selector_box').add({
+            xtype:'rallydatefield',
+            itemId:'start_date_selector',
+            fieldLabel: 'Include weeks from:',
+            listeners: {
+                scope: this,
+                change: function(dp, new_value) {
+                    var week_start = this._getBeginningOfWeek(new_value);
+                    if ( week_start !== new_value ) {
+                        dp.setValue(week_start);
+                    }
+                    if ( new_value.getDay() === 0 ) {
+                        me._mask("Gathering timesheet data...");
+                        me._getTimesheets();
+                    }
+                }
+            }
+        });
+        var end_selector = this.down('#date_selector_box').add({
+            xtype:'rallydatefield',
+            itemId:'end_date_selector',
+            fieldLabel: 'to:',
+            listeners: {
+                scope: this,
+                change: function(dp, new_value) {
+                    var week_start = this._getBeginningOfWeek(new_value);
+                    if ( week_start !== new_value ) {
+                        dp.setValue(week_start);
+                    }
+                    if ( new_value.getDay() === 0 ) {
+                        me._mask("Gathering timesheet data...",me);
+                        me._getTimesheets();
+                    }
+                }
+            }
+        });
+        start_selector.setValue(new Date());
+        end_selector.setValue(new Date());
+    },
+    _getBeginningOfWeek: function(js_date){
+        var start_of_week_here = Ext.Date.add(js_date, Ext.Date.DAY, -1 * js_date.getDay());
+        return start_of_week_here;
+    },
+    _mask: function(text) {
+        var me = this;
+        setTimeout(function(){
+            me.setLoading(text);
+        },10);
+    },
+    _unmask: function() {
+        this.setLoading(false);
+    },
+    _getTimesheets: function() {
+        this.logger.log("_getTimesheets");
+        var start_end = this._getTimeRange();
+
+        if ( start_end.length == 2 ) {
+            this.logger.log("  Start/End ", start_end);
+            var first_week = start_end[0];
+            var last_week = start_end[1];
+            
+        }
+    }
+});
+
+            
+               Rally.launchApp('CustomApp', {
+                   name: 'Task Time Summary'
+               });
+        });
+    </script>
+    
+    <style type="text/css">
+
+.app {
+}
+.tsinfolink {
+    position:absolute;
+    right:0px;
+    width:5%;
+}
+    </style>
+
+</head>
+<body></body>
+</html>
