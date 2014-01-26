@@ -3,11 +3,11 @@
 <head>
     <title>Task Time Summary</title>
     <!--  (c) 2014 Rally Software Development Corp.  All Rights Reserved. -->
-    <!--  Build Date: Sat Jan 25 2014 16:44:30 GMT-0800 (PST) -->
+    <!--  Build Date: Sat Jan 25 2014 17:06:16 GMT-0800 (PST) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Sat Jan 25 2014 16:44:30 GMT-0800 (PST)";
-        var CHECKSUM = 6420320681;
+        var APP_BUILD_DATE = "Sat Jan 25 2014 17:06:16 GMT-0800 (PST)";
+        var CHECKSUM = 6810200179;
     </script>
     
     <script type="text/javascript" src="/apps/2.0rc2/sdk.js"></script>
@@ -162,7 +162,7 @@ Ext.define('CustomApp', {
             {xtype:'container',itemId:'date_selector_box'}, 
             {xtype:'container',itemId:'save_button_box'}
         ]},
-        {xtype:'container',itemId:'grid_box'},
+        {xtype:'container',itemId:'grid_box', padding: 10, margin: 10 },
         {xtype:'tsinfolink'}
     ],
     launch: function() {
@@ -264,7 +264,7 @@ Ext.define('CustomApp', {
                 filters: [
                     {property:'TimeEntryItem.WeekStartDate',operator:'>=',value:start_date},
                     {property:'TimeEntryItem.WeekStartDate',operator:'<=',value:end_date},
-                    {property:'TimeEntryItem.Task',operator:'!=',value:''}
+                    {property:'TimeEntryItem.Task',operator:'!=',value:""}
                 ],
                 fetch: ['User','UserName','ObjectID','Hours','TimeEntryItem','Task','FormattedID',
                     'Name','WorkProduct','Feature','Parent'],
@@ -276,12 +276,17 @@ Ext.define('CustomApp', {
                         Ext.Array.each( records, function(record) {
                             me.logger.log(' time: ',record);
                             var time_entry_item = record.get('TimeEntryItem');
-                            var key = time_entry_item.Task.FormattedID + "_" + time_entry_item.User.ObjectID;
-                            if ( ! tasks_by_user[key] ) {
-                                tasks_by_user[key] = me._getObjectFromTimeValue( record );
-                            }   
-                            var hours = record.get('Hours') || 0;
-                            tasks_by_user[key].total = tasks_by_user[key].total + hours;
+                            if ( time_entry_item.Task === null ) {
+                                me.logger.log('  SKIP null Task');
+                            } else {
+                                var user = time_entry_item.User || { ObjectID:-1, UserName:'missing user'};
+                                var key = time_entry_item.Task.FormattedID + "_" + user.ObjectID;
+                                if ( ! tasks_by_user[key] ) {
+                                    tasks_by_user[key] = me._getObjectFromTimeValue( record );
+                                }   
+                                var hours = record.get('Hours') || 0;
+                                tasks_by_user[key].total = tasks_by_user[key].total + hours;
+                            }
                         });
                         
                         this._makeGrid(tasks_by_user);
@@ -292,12 +297,14 @@ Ext.define('CustomApp', {
     },
     _getObjectFromTimeValue: function(record){
         var time_entry_item = record.get('TimeEntryItem');
+        var user = time_entry_item.User || { UserName: 'unknown user' };
+        
         var workproduct = time_entry_item.WorkProduct || { FormattedID: "", Name: "" };
         var feature = workproduct.Feature || { FormattedID: "", Name: "" };
         var initiative = feature.Parent || { FormattedID: "", Name: "" };
         return {
             total: 0,
-            user: time_entry_item.User.UserName,
+            user: user.UserName || "Deleted User: " + user._refObjectName,
             task_fid: time_entry_item.Task.FormattedID,
             task_name: time_entry_item.Task.Name,
             workproduct_fid: workproduct.FormattedID,
