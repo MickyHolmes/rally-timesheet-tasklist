@@ -3,11 +3,11 @@
 <head>
     <title>Task Time Summary</title>
     <!--  (c) 2014 Rally Software Development Corp.  All Rights Reserved. -->
-    <!--  Build Date: Sat Jan 25 2014 13:44:46 GMT-0800 (PST) -->
+    <!--  Build Date: Sat Jan 25 2014 16:44:30 GMT-0800 (PST) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Sat Jan 25 2014 13:44:46 GMT-0800 (PST)";
-        var CHECKSUM = 5695614246;
+        var APP_BUILD_DATE = "Sat Jan 25 2014 16:44:30 GMT-0800 (PST)";
+        var CHECKSUM = 6420320681;
     </script>
     
     <script type="text/javascript" src="/apps/2.0rc2/sdk.js"></script>
@@ -37,7 +37,7 @@ Ext.define('Rally.technicalservices.InfoLink',{
      */
      title: "Information",
     
-    renderTpl: "<div id='{id}-infolinkWrap' class='tsinfolink'>TS</div>",
+    renderTpl: "<div id='{id}-infolinkWrap' class='tsinfolink'>.</div>",
 
     initComponent: function() {
         this.callParent(arguments);
@@ -137,6 +137,21 @@ Ext.define('Rally.technicalservices.Logger',{
 
 });
 
+Ext.define('Time', {
+    extend: 'Ext.data.Model',
+    fields: [
+        {name: 'total',   type: 'int', convert: null},
+        {name: 'user',  type: 'string'},
+        {name: 'task_fid',  type: 'string'},
+        {name: 'task_name',  type: 'string'},
+        {name: 'workproduct_fid',  type: 'string'},
+        {name: 'workproduct_name',  type: 'string'},
+        {name: 'feature_fid',  type: 'string'},
+        {name: 'feature_name',  type: 'string'},
+        {name: 'initiative_fid',  type: 'string'},
+        {name: 'initiative_name',  type: 'string'}
+    ]
+});
 Ext.define('CustomApp', {
     extend: 'Rally.app.App',
     componentCls: 'app',
@@ -296,13 +311,21 @@ Ext.define('CustomApp', {
     _makeGrid: function(tasks_by_user) {
         this.logger.log("_makeGrid", tasks_by_user);
         var me = this;
-        var store = Ext.create('Rally.data.custom.Store',{
-            data: me._hashToArray(tasks_by_user)
+        var store = Ext.create('Rally.data.custom.Store', {
+            model: 'Time',
+            autoLoad: true,
+            data :me._hashToArray(tasks_by_user)
         });
+        
+        //me.logger.log(' store thinks', store.getTotalCount());
         
         this.grid = this.down('#grid_box').add({
             xtype:'rallygrid',
             store: store,
+            pagingToolbarCfg: {
+               pageSizes: [10, 25, 50],
+               store: store
+            },
             columnCfgs: [
                 {text:'User',dataIndex:'user'},
                 {text:'Task', columns:[

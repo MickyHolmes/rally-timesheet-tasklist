@@ -8,7 +8,7 @@ Ext.define('CustomApp', {
             {xtype:'container',itemId:'date_selector_box'}, 
             {xtype:'container',itemId:'save_button_box'}
         ]},
-        {xtype:'container',itemId:'grid_box'},
+        {xtype:'container',itemId:'grid_box', padding: 10, margin: 10 },
         {xtype:'tsinfolink'}
     ],
     launch: function() {
@@ -157,13 +157,21 @@ Ext.define('CustomApp', {
     _makeGrid: function(tasks_by_user) {
         this.logger.log("_makeGrid", tasks_by_user);
         var me = this;
-        var store = Ext.create('Rally.data.custom.Store',{
-            data: me._hashToArray(tasks_by_user)
+        var store = Ext.create('Rally.data.custom.Store', {
+            model: 'Time',
+            autoLoad: true,
+            data :me._hashToArray(tasks_by_user)
         });
+        
+        //me.logger.log(' store thinks', store.getTotalCount());
         
         this.grid = this.down('#grid_box').add({
             xtype:'rallygrid',
             store: store,
+            pagingToolbarCfg: {
+               pageSizes: [10, 25, 50],
+               store: store
+            },
             columnCfgs: [
                 {text:'User',dataIndex:'user'},
                 {text:'Task', columns:[
