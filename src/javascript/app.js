@@ -13,6 +13,9 @@ Ext.define('CustomApp', {
     ],
     launch: function() {
         this._addDateSelectors();
+        if ( this._isAbleToDownloadFiles() ) {
+            this._addDownloadButton();
+        }
     },
     _addDateSelectors: function() {
         var me = this;
@@ -54,6 +57,17 @@ Ext.define('CustomApp', {
         });
         start_selector.setValue(new Date());
         end_selector.setValue(new Date());
+    },
+    _addDownloadButton: function() {
+        this.down('#save_button_box').add({
+            xtype:'rallybutton',
+            text:'Export to CSV',
+            scope: this,
+            handler: function() {
+                this._makeCSV();
+            }
+        });
+        
     },
     _getBeginningOfWeek: function(js_date){
         var start_of_week_here = Ext.Date.add(js_date, Ext.Date.DAY, -1 * js_date.getDay());
@@ -173,10 +187,11 @@ Ext.define('CustomApp', {
     _makeGrid: function(tasks_by_user) {
         this.logger.log("_makeGrid", tasks_by_user);
         var me = this;
+        this.data = me._hashToArray(tasks_by_user);
         var store = Ext.create('Rally.data.custom.Store', {
             model: 'Time',
             autoLoad: true,
-            data :me._hashToArray(tasks_by_user)
+            data : me.data
         });
         
         //me.logger.log(' store thinks', store.getTotalCount());
@@ -185,27 +200,23 @@ Ext.define('CustomApp', {
             xtype:'rallygrid',
             store: store,
             pagingToolbarCfg: {
-               pageSizes: [10, 25, 50],
                store: store
             },
             columnCfgs: [
                 {text:'User',dataIndex:'user'},
-                {text:'Task', columns:[
-                    {text:'ID', dataIndex: 'task_fid', sortable: true, menuDisabled: true },
-                    {text:'Name', dataIndex: 'task_name', sortable: true, menuDisabled: true}
-                ]},
-                {text:'WorkProduct',columns:[
-                    {text:'ID', dataIndex: 'workproduct_fid', sortable: true, menuDisabled: true},
-                    {text:'Name', dataIndex: 'workproduct_name', sortable: true, menuDisabled: true}
-                ]},
-                {text:'Feature',columns:[
-                    {text:'ID', dataIndex: 'feature_fid', sortable: true, menuDisabled: true},
-                    {text:'Name', dataIndex: 'feature_name', sortable: true, menuDisabled: true}
-                ]},
-                {text:'Initiative',columns:[
-                    {text:'ID', dataIndex: 'initiative_fid', sortable: true, menuDisabled: true},
-                    {text:'Name', dataIndex: 'initiative_name', sortable: true, menuDisabled: true}
-                ]},
+                
+                {text:'Task ID', dataIndex: 'task_fid', sortable: true, menuDisabled: true },
+                {text:'Task Name', dataIndex: 'task_name', sortable: true, menuDisabled: true},
+            
+                {text:'WorkProduct ID', dataIndex: 'workproduct_fid', sortable: true, menuDisabled: true},
+                {text:'WorkProduct Name', dataIndex: 'workproduct_name', sortable: true, menuDisabled: true},
+
+                {text:'Feature ID', dataIndex: 'feature_fid', sortable: true, menuDisabled: true},
+                {text:'Feature Name', dataIndex: 'feature_name', sortable: true, menuDisabled: true},
+            
+                {text:'Initiative ID', dataIndex: 'initiative_fid', sortable: true, menuDisabled: true},
+                {text:'Intitiative Name', dataIndex: 'initiative_name', sortable: true, menuDisabled: true},
+                    
                 {text:'Hours', dataIndex:'total'}
             ]
         });
@@ -218,5 +229,39 @@ Ext.define('CustomApp', {
             result_array.push(value);
         });
         return result_array;
+    },
+    _isAbleToDownloadFiles: function() {
+        try { 
+            var isFileSaverSupported = !!new Blob(); 
+        } catch(e){
+            this.logger.log(" NOTE: This browser does not support downloading");
+            return false;
+        }
+        return true;
+    },
+    _makeCSV: function() {
+        var store = this.grid.getStore();
+        var columns = this.grid.getColumnCfgs();
+        var csv_header_array = [];
+        var column_index_array = [];
+        Ext.Array.each(columns,function(column){
+            csv_header_array.push(column.text);
+            column_index_array.push(column.dataIndex);
+        });
+        var csv=[];
+        csv.push(csv_header_array.join(','));
+                        
+        Ext.Array.each( this.data, function (record) {
+            var row_array = [];
+            Ext.Array.each(column_index_array, function(index_name){
+                row_array.push(record[index_name]);
+            });
+            csv.push(row_array.join(','));
+        });
+        this.logger.log("csv",csv.join('\r\n'));
+        
+        var file_name = "timesheet_export.csv";
+        var blob = new Blob([csv.join("\r\n")],{type:'text/csv;charset=utf-8'});
+        saveAs(blob,file_name);
     }
 });
