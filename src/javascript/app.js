@@ -121,6 +121,7 @@ Ext.define('CustomApp', {
             Ext.create('Rally.data.wsapi.Store',{
                 autoLoad: true,
                 model:'TimeEntryValue',
+                limit:'Infinity',
                 filters: [
                     {property:'TimeEntryItem.WeekStartDate',operator:'>=',value:start_date},
                     {property:'TimeEntryItem.WeekStartDate',operator:'<=',value:end_date},
@@ -131,6 +132,7 @@ Ext.define('CustomApp', {
                 listeners: {
                     scope: this,
                     load: function(store,records){
+                        this.logger.log("Found time values: ", records.length);
                         var me = this;
                         var tasks_by_user = {}; // key is FormattedID_UserObjectID
                         Ext.Array.each( records, function(record) {
@@ -140,7 +142,7 @@ Ext.define('CustomApp', {
 //                            me.logger.log('date: ',time_item_date, check_start, check_end);
 //                            me.logger.log('  cs/time', check_start.localeCompare(time_item_date));
 //                            me.logger.log('  ce/time', check_end.localeCompare(time_item_date));
-                            me.logger.log(' time: ',record);
+                            //me.logger.log(' time: ',record);
                             if (check_start.localeCompare(time_item_date) < 1 && check_end.localeCompare(time_item_date) > -1 ) {
                                 
                                 var time_entry_item = record.get('TimeEntryItem');
@@ -254,7 +256,12 @@ Ext.define('CustomApp', {
         Ext.Array.each( this.data, function (record) {
             var row_array = [];
             Ext.Array.each(column_index_array, function(index_name){
-                row_array.push(record[index_name]);
+                var cell_value = record[index_name];
+                if ( cell_value && isNaN(cell_value) ) {
+                    cell_value = cell_value.replace(/\"/g,"'");
+                    cell_value = '"' + cell_value + '"';
+                }
+                row_array.push(cell_value);
             });
             csv.push(row_array.join(','));
         });
