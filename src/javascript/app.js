@@ -23,14 +23,14 @@ Ext.define('CustomApp', {
             listeners: {
                 scope: this,
                 change: function(dp, new_value) {
-                    var week_start = this._getBeginningOfWeek(new_value);
-                    if ( week_start !== new_value ) {
-                        dp.setValue(week_start);
-                    }
-                    if ( new_value.getDay() === 0 ) {
+//                    var week_start = this._getBeginningOfWeek(new_value);
+//                    if ( week_start !== new_value ) {
+//                        dp.setValue(week_start);
+//                    }
+//                    if ( new_value.getDay() === 0 ) {
                         me._mask("Gathering timesheet data...");
                         me._getTimesheets();
-                    }
+//                    }
                 }
             }
         });
@@ -42,13 +42,13 @@ Ext.define('CustomApp', {
                 scope: this,
                 change: function(dp, new_value) {
                     var week_start = this._getBeginningOfWeek(new_value);
-                    if ( week_start !== new_value ) {
-                        dp.setValue(week_start);
-                    }
-                    if ( new_value.getDay() === 0 ) {
+//                    if ( week_start !== new_value ) {
+//                        dp.setValue(week_start);
+//                    }
+//                    if ( new_value.getDay() === 0 ) {
                         me._mask("Gathering timesheet data...",me);
                         me._getTimesheets();
-                    }
+//                    }
                 }
             }
         });
@@ -101,8 +101,8 @@ Ext.define('CustomApp', {
             var last_week = start_end[1];
         
             if ( this.grid ) { this.grid.destroy(); }
-            var start_date = Rally.util.DateTime.toIsoString(first_week,true).replace(/T.*$/,"T00:00:00.000Z");
-            var end_date = Rally.util.DateTime.toIsoString(last_week,true).replace(/T.*$/,"T00:00:00.000Z");
+            var start_date = Rally.util.DateTime.toIsoString(this._getBeginningOfWeek(first_week),true).replace(/T.*$/,"T00:00:00.000Z");
+            var end_date = Rally.util.DateTime.toIsoString(this._getBeginningOfWeek(last_week),true).replace(/T.*$/,"T00:00:00.000Z");
             
             Ext.create('Rally.data.wsapi.Store',{
                 autoLoad: true,
@@ -113,25 +113,34 @@ Ext.define('CustomApp', {
                     {property:'TimeEntryItem.Task',operator:'!=',value:""}
                 ],
                 fetch: ['User','UserName','ObjectID','Hours','TimeEntryItem','Task','FormattedID',
-                    'Name','WorkProduct','Feature','Parent'],
+                    'Name','WorkProduct','Feature','Parent','DateVal'],
                 listeners: {
                     scope: this,
                     load: function(store,records){
                         var me = this;
                         var tasks_by_user = {}; // key is FormattedID_UserObjectID
                         Ext.Array.each( records, function(record) {
+                            var check_start = Rally.util.DateTime.toIsoString(start_end[0],true).replace(/T.*$/,"");
+                            var check_end = Rally.util.DateTime.toIsoString(start_end[1],true).replace(/T.*$/,"");
+                            var time_item_date = Rally.util.DateTime.toIsoString(record.get('DateVal'),true).replace(/T.*$/,"");
+//                            me.logger.log('date: ',time_item_date, check_start, check_end);
+//                            me.logger.log('  cs/time', check_start.localeCompare(time_item_date));
+//                            me.logger.log('  ce/time', check_end.localeCompare(time_item_date));
                             me.logger.log(' time: ',record);
-                            var time_entry_item = record.get('TimeEntryItem');
-                            if ( time_entry_item.Task === null ) {
-                                me.logger.log('  SKIP null Task');
-                            } else {
-                                var user = time_entry_item.User || { ObjectID:-1, UserName:'missing user'};
-                                var key = time_entry_item.Task.FormattedID + "_" + user.ObjectID;
-                                if ( ! tasks_by_user[key] ) {
-                                    tasks_by_user[key] = me._getObjectFromTimeValue( record );
-                                }   
-                                var hours = record.get('Hours') || 0;
-                                tasks_by_user[key].total = tasks_by_user[key].total + hours;
+                            if (check_start.localeCompare(time_item_date) < 1 && check_end.localeCompare(time_item_date) > -1 ) {
+                                
+                                var time_entry_item = record.get('TimeEntryItem');
+                                if ( time_entry_item.Task === null ) {
+                                    me.logger.log('  SKIP null Task');
+                                } else {
+                                    var user = time_entry_item.User || { ObjectID:-1, UserName:'missing user'};
+                                    var key = time_entry_item.Task.FormattedID + "_" + user.ObjectID;
+                                    if ( ! tasks_by_user[key] ) {
+                                        tasks_by_user[key] = me._getObjectFromTimeValue( record );
+                                    }   
+                                    var hours = record.get('Hours') || 0;
+                                    tasks_by_user[key].total = tasks_by_user[key].total + hours;
+                                }
                             }
                         });
                         
