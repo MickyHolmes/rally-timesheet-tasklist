@@ -3,12 +3,11 @@
 <head>
     <title>Task Time Summary</title>
     <!--  (c) 2014 Rally Software Development Corp.  All Rights Reserved. -->
-    <!--  Build Date: Tue Apr 15 2014 10:46:37 GMT-0700 (PDT) -->
+    <!--  Build Date: Tue Apr 15 2014 16:40:18 GMT-0700 (PDT) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Tue Apr 15 2014 10:46:37 GMT-0700 (PDT)";
-        var CHECKSUM = 34632521866;
-        var AUTHOR = ;
+        var APP_BUILD_DATE = "Tue Apr 15 2014 16:40:18 GMT-0700 (PDT)";
+        var CHECKSUM = 50847427810;
     </script>
     
     <script type="text/javascript" src="/apps/2.0rc2/sdk.js"></script>
@@ -522,21 +521,6 @@ Ext.define('Rally.technicalservices.Logger',{
 
 });
 
-Ext.define('Time', {
-    extend: 'Ext.data.Model',
-    fields: [
-        {name: 'total',   type: 'int', convert: null},
-        {name: 'user',  type: 'string'},
-        {name: 'task_fid',  type: 'string'},
-        {name: 'task_name',  type: 'string'},
-        {name: 'workproduct_fid',  type: 'string'},
-        {name: 'workproduct_name',  type: 'string'},
-        {name: 'feature_fid',  type: 'string'},
-        {name: 'feature_name',  type: 'string'},
-        {name: 'initiative_fid',  type: 'string'},
-        {name: 'initiative_name',  type: 'string'}
-    ]
-});
 Ext.define('CustomApp', {
     extend: 'Rally.app.App',
     componentCls: 'app',
@@ -552,8 +536,13 @@ Ext.define('CustomApp', {
     ],
     launch: function() {
         this._addDateSelectors();
+        
         if ( this._isAbleToDownloadFiles() ) {
             this._addDownloadButton();
+        }
+        if (typeof(this.getAppId()) == 'undefined' ) {
+            // not inside Rally
+            this._showExternalSettingsDialog(this.getSettingsFields());
         }
     },
     _addDateSelectors: function() {
@@ -633,8 +622,28 @@ Ext.define('CustomApp', {
     _unmask: function() {
         this.setLoading(false);
     },
+    _getFieldsFromString: function(prefix,field_string){
+        var field_array = [];
+        if ( field_string ) {
+            var values = field_string.split(',');
+            Ext.Array.each(values,function(value){
+                field_array.push({
+                    text: value, 
+                    dataIndex: prefix + "_" + value,
+                    name: value,
+                    sortable: true, 
+                    menuDisabled: true
+                });
+            }); 
+        }
+        return field_array;
+    },
     _getTimesheets: function() {
         this.logger.log("_getTimesheets");
+        this.additional_fields_for_stories = this._getFieldsFromString('additional_fields_for_stories',this.getSetting('additional_fields_for_stories'));
+        
+        this.logger.log("Additional Story Fields: ", this.additional_fields_for_stories);
+        
         var start_end = this._getTimeRange();
 
         if ( start_end.length == 2 ) {
@@ -646,6 +655,10 @@ Ext.define('CustomApp', {
             var start_date = Rally.util.DateTime.toIsoString(this._getBeginningOfWeek(first_week),true).replace(/T.*$/,"T00:00:00.000Z");
             var end_date = Rally.util.DateTime.toIsoString(this._getBeginningOfWeek(last_week),true).replace(/T.*$/,"T00:00:00.000Z");
             
+            var fetch = this._getFetchFields();
+            
+            this.logger.log("Fetch: ",fetch);
+            
             Ext.create('Rally.data.wsapi.Store',{
                 autoLoad: true,
                 model:'TimeEntryValue',
@@ -655,8 +668,7 @@ Ext.define('CustomApp', {
                     {property:'TimeEntryItem.WeekStartDate',operator:'<=',value:end_date},
                     {property:'TimeEntryItem.Task',operator:'!=',value:""}
                 ],
-                fetch: ['User','UserName','ObjectID','Hours','TimeEntryItem','Task','FormattedID',
-                    'Name','WorkProduct','Feature','Parent','DateVal', 'Requirement'],
+                fetch: fetch,
                 listeners: {
                     scope: this,
                     load: function(store,records){
@@ -691,6 +703,42 @@ Ext.define('CustomApp', {
             });
         }
     },
+    _getFetchFields: function() {
+        var base_field_array = ['User','UserName','ObjectID','Hours',
+            'TimeEntryItem','Task','FormattedID','Name','WorkProduct',
+            'Feature','Parent','DateVal', 'Requirement'];
+            
+        var story_field_array = this._getFetchFieldsFromColumns(this.additional_fields_for_stories);
+            
+        return Ext.Array.push(base_field_array,story_field_array);
+    },
+    _getModelFields: function() {
+        var fields = [
+            {name: 'total',   type: 'int', convert: null},
+            {name: 'user',  type: 'string'},
+            {name: 'task_fid',  type: 'string'},
+            {name: 'task_name',  type: 'string'},
+            {name: 'workproduct_fid',  type: 'string'},
+            {name: 'workproduct_name',  type: 'string'},
+            {name: 'feature_fid',  type: 'string'},
+            {name: 'feature_name',  type: 'string'},
+            {name: 'initiative_fid',  type: 'string'},
+            {name: 'initiative_name',  type: 'string'}
+        ];
+        
+        Ext.Array.each(this.additional_fields_for_stories,function(field){
+            fields.push({name:field.dataIndex, type:'string'});
+        });
+        
+        return fields;
+    },
+    _getFetchFieldsFromColumns: function(columns) {
+        var name_array = [];
+        Ext.Array.each(columns,function(column){
+            name_array.push(column.name);
+        });
+        return name_array;
+    },
     _getObjectFromTimeValue: function(record){
         var time_entry_item = record.get('TimeEntryItem');
         var user = time_entry_item.User || { UserName: 'unknown user' };
@@ -698,15 +746,13 @@ Ext.define('CustomApp', {
         var workproduct = time_entry_item.WorkProduct || { FormattedID: "", Name: "" };
         var feature = workproduct.Feature || { FormattedID: "", Name: "" };
         
-        this.logger.log("WorkProduct ",workproduct);
         if ( workproduct._type == "Defect" && workproduct.Requirement ) {
-            this.logger.log("Requirement", workproduct.Requirement);
             feature = workproduct.Requirement.Feature || { FormattedID: "", Name: "" };
         }
         
         var initiative = feature.Parent || { FormattedID: "", Name: "" };
 
-        return {
+        var time_object =  {
             total: 0,
             user: user.UserName || "Deleted User: " + user._refObjectName,
             task_fid: time_entry_item.Task.FormattedID,
@@ -718,11 +764,27 @@ Ext.define('CustomApp', {
             initiative_fid: initiative.FormattedID,
             initiative_name: initiative.Name
         };
+        
+        if ( workproduct && workproduct.FormattedID ) {
+            Ext.Array.each(this.additional_fields_for_stories,function(column) {
+                time_object[column.dataIndex] = workproduct[column.name];
+            });
+        }
+        
+        return time_object;
     },
     _makeGrid: function(tasks_by_user) {
         this.logger.log("_makeGrid", tasks_by_user);
         var me = this;
         this.data = me._hashToArray(tasks_by_user);
+        
+        var model_fields = this._getModelFields();
+        
+        Ext.define('Time', {
+            extend: 'Ext.data.Model',
+            fields: model_fields
+        });
+
         var store = Ext.create('Rally.data.custom.Store', {
             model: 'Time',
             autoLoad: true,
@@ -731,32 +793,47 @@ Ext.define('CustomApp', {
         
         //me.logger.log(' store thinks', store.getTotalCount());
         
+        var columns = this._getColumns();
+        this.logger.log("Column Cfg: ", columns);
+        
         this.grid = this.down('#grid_box').add({
             xtype:'rallygrid',
             store: store,
             pagingToolbarCfg: {
                store: store
             },
-            columnCfgs: [
-                {text:'User',dataIndex:'user'},
-                
-                {text:'Task ID', dataIndex: 'task_fid', sortable: true, menuDisabled: true },
-                {text:'Task Name', dataIndex: 'task_name', sortable: true, menuDisabled: true},
-            
-                {text:'WorkProduct ID', dataIndex: 'workproduct_fid', sortable: true, menuDisabled: true},
-                {text:'WorkProduct Name', dataIndex: 'workproduct_name', sortable: true, menuDisabled: true},
-
-                {text:'Feature ID', dataIndex: 'feature_fid', sortable: true, menuDisabled: true},
-                {text:'Feature Name', dataIndex: 'feature_name', sortable: true, menuDisabled: true},
-            
-                {text:'Initiative ID', dataIndex: 'initiative_fid', sortable: true, menuDisabled: true},
-                {text:'Intitiative Name', dataIndex: 'initiative_name', sortable: true, menuDisabled: true},
-                    
-                {text:'Hours', dataIndex:'total'}
-            ]
+            columnCfgs: columns
         });
         
         me._unmask();
+    },
+    _getColumns: function() {
+        var task_columns = [
+            {text:'User',dataIndex:'user'},
+            
+            {text:'Task ID', dataIndex: 'task_fid', sortable: true, menuDisabled: true },
+            {text:'Task Name', dataIndex: 'task_name', sortable: true, menuDisabled: true}
+        ];
+        var workproduct_columns = [
+            {text:'WorkProduct ID', dataIndex: 'workproduct_fid', sortable: true, menuDisabled: true},
+            {text:'WorkProduct Name', dataIndex: 'workproduct_name', sortable: true, menuDisabled: true}
+        ];
+        
+        var workproduct_columns = Ext.Array.push(workproduct_columns,this.additional_fields_for_stories);
+        
+        var feature_columns = [
+            {text:'Feature ID', dataIndex: 'feature_fid', sortable: true, menuDisabled: true},
+            {text:'Feature Name', dataIndex: 'feature_name', sortable: true, menuDisabled: true}
+        ];
+        var initiative_columns = [        
+            {text:'Initiative ID', dataIndex: 'initiative_fid', sortable: true, menuDisabled: true},
+            {text:'Intitiative Name', dataIndex: 'initiative_name', sortable: true, menuDisabled: true}
+        ];
+        var additional_columns = [
+            {text:'Hours', dataIndex:'total'}
+        ];
+        
+        return Ext.Array.push(task_columns,workproduct_columns,feature_columns,initiative_columns,additional_columns);
     },
     _hashToArray: function(hash) {
         var result_array = [];
@@ -803,6 +880,102 @@ Ext.define('CustomApp', {
         var file_name = "timesheet_export.csv";
         var blob = new Blob([csv.join("\r\n")],{type:'text/csv;charset=utf-8'});
         saveAs(blob,file_name);
+    },
+    // ONLY FOR RUNNING EXTERNALLY
+    _showExternalSettingsDialog: function(fields){
+        var me = this;
+        if ( this.settings_dialog ) { this.settings_dialog.destroy(); }
+        this.settings_dialog = Ext.create('Rally.ui.dialog.Dialog', {
+             autoShow: false,
+             draggable: true,
+             width: 400,
+             title: 'Settings',
+             buttons: [{ 
+                text: 'OK',
+                handler: function(cmp){
+                    var settings = {};
+                    Ext.Array.each(fields,function(field){
+                        if ( field.xtype == "rallyfieldpicker" ) {
+                            var values = cmp.up('rallydialog').down('[name="' + field.name + '"]').getValue();
+                            var field_array = [];
+                            
+                            Ext.Array.each(values,function(value){
+                                field_array.push(value.get('name'));
+                            });
+
+                            settings[field.name] = field_array.join(',');
+                        } else {
+                            settings[field.name] = cmp.up('rallydialog').down('[name="' + field.name + '"]').getValue();
+                        }
+                        me.logger.log("SETTINGS: ",settings);
+                    });
+                    me.settings = settings;
+                    cmp.up('rallydialog').destroy();
+                    me._getTimesheets();
+                }
+            }],
+             items: [
+                {xtype:'container',html: "&nbsp;", padding: 5, margin: 5},
+                {xtype:'container',itemId:'field_box', padding: 5, margin: 5}]
+         });
+         Ext.Array.each(fields,function(field){
+            me.settings_dialog.down('#field_box').add(field);
+         });
+         this.settings_dialog.show();
+    },
+    getSettingsFields: function() {
+        var _chooseOnlyNumberFields = function(field){
+            var should_show_field = true;
+            var forbidden_fields = ['FormattedID','ObjectID','DragAndDropRank','Name'];
+            if ( field.hidden ) {
+                should_show_field = false;
+            }
+            if ( field.attributeDefinition ) {
+                var type = field.attributeDefinition.AttributeType;
+                if ( type != "QUANTITY" && type != "INTEGER" && type != "DECIMAL"  ) {
+                    should_show_field = false;
+                }
+                if ( Ext.Array.indexOf(forbidden_fields,field.name) > -1 ) {
+                    should_show_field = false;
+                }
+            } else {
+                should_show_field = false;
+            }
+            return should_show_field;
+        };
+                
+        var _ignoreTextFields = function(field){
+            var should_show_field = true;
+            var forbidden_fields = ['FormattedID','ObjectID','DragAndDropRank','Name'];
+            if ( field.hidden ) {
+                should_show_field = false;
+            }
+            if ( field.attributeDefinition ) {
+                var type = field.attributeDefinition.AttributeType;
+                if ( type == "TEXT" || type == "OBJECT" || type == "COLLECTION" ) {
+                    should_show_field = false;
+                }
+                if ( Ext.Array.indexOf(forbidden_fields,field.name) > -1 ) {
+                    should_show_field = false;
+                }
+            } else {
+                should_show_field = false;
+            }
+            return should_show_field;
+        };
+        
+        return [
+            {
+                name: 'additional_fields_for_stories',
+                xtype: 'rallyfieldpicker',
+                modelTypes: ['HierarchicalRequirement'],
+                fieldLabel: 'Additional fields for Stories:',
+                _shouldShowField: _ignoreTextFields,
+                width: 300,
+                labelWidth: 150,
+                readyEvent: 'ready' //event fired to signify readiness
+            }
+        ];
     }
 });
 
