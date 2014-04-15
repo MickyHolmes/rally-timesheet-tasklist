@@ -26,14 +26,8 @@ Ext.define('CustomApp', {
             listeners: {
                 scope: this,
                 change: function(dp, new_value) {
-//                    var week_start = this._getBeginningOfWeek(new_value);
-//                    if ( week_start !== new_value ) {
-//                        dp.setValue(week_start);
-//                    }
-//                    if ( new_value.getDay() === 0 ) {
                         me._mask("Gathering timesheet data...");
                         me._getTimesheets();
-//                    }
                 }
             }
         });
@@ -45,13 +39,8 @@ Ext.define('CustomApp', {
                 scope: this,
                 change: function(dp, new_value) {
                     var week_start = this._getBeginningOfWeek(new_value);
-//                    if ( week_start !== new_value ) {
-//                        dp.setValue(week_start);
-//                    }
-//                    if ( new_value.getDay() === 0 ) {
                         me._mask("Gathering timesheet data...",me);
                         me._getTimesheets();
-//                    }
                 }
             }
         });
@@ -128,7 +117,7 @@ Ext.define('CustomApp', {
                     {property:'TimeEntryItem.Task',operator:'!=',value:""}
                 ],
                 fetch: ['User','UserName','ObjectID','Hours','TimeEntryItem','Task','FormattedID',
-                    'Name','WorkProduct','Feature','Parent','DateVal'],
+                    'Name','WorkProduct','Feature','Parent','DateVal', 'Requirement'],
                 listeners: {
                     scope: this,
                     load: function(store,records){
@@ -139,10 +128,7 @@ Ext.define('CustomApp', {
                             var check_start = Rally.util.DateTime.toIsoString(start_end[0],true).replace(/T.*$/,"");
                             var check_end = Rally.util.DateTime.toIsoString(start_end[1],true).replace(/T.*$/,"");
                             var time_item_date = Rally.util.DateTime.toIsoString(record.get('DateVal'),true).replace(/T.*$/,"");
-//                            me.logger.log('date: ',time_item_date, check_start, check_end);
-//                            me.logger.log('  cs/time', check_start.localeCompare(time_item_date));
-//                            me.logger.log('  ce/time', check_end.localeCompare(time_item_date));
-                            //me.logger.log(' time: ',record);
+
                             if (check_start.localeCompare(time_item_date) < 1 && check_end.localeCompare(time_item_date) > -1 ) {
                                 
                                 var time_entry_item = record.get('TimeEntryItem');
@@ -172,7 +158,15 @@ Ext.define('CustomApp', {
         
         var workproduct = time_entry_item.WorkProduct || { FormattedID: "", Name: "" };
         var feature = workproduct.Feature || { FormattedID: "", Name: "" };
+        
+        this.logger.log("WorkProduct ",workproduct);
+        if ( workproduct._type == "Defect" && workproduct.Requirement ) {
+            this.logger.log("Requirement", workproduct.Requirement);
+            feature = workproduct.Requirement.Feature || { FormattedID: "", Name: "" };
+        }
+        
         var initiative = feature.Parent || { FormattedID: "", Name: "" };
+
         return {
             total: 0,
             user: user.UserName || "Deleted User: " + user._refObjectName,
