@@ -118,9 +118,8 @@ Ext.define('CustomApp', {
     _getTimesheets: function() {
         this.logger.log("_getTimesheets");
         this.additional_fields_for_stories = this._getFieldsFromString('additional_fields_for_stories',this.getSetting('additional_fields_for_stories'));
-        
-        this.logger.log("Additional Story Fields: ", this.additional_fields_for_stories);
-        
+        this.additional_fields_for_tasks = this._getFieldsFromString('additional_fields_for_tasks',this.getSetting('additional_fields_for_tasks'));
+                
         var start_end = this._getTimeRange();
 
         if ( start_end.length == 2 ) {
@@ -186,8 +185,9 @@ Ext.define('CustomApp', {
             'Feature','Parent','DateVal', 'Requirement'];
             
         var story_field_array = this._getFetchFieldsFromColumns(this.additional_fields_for_stories);
+        var task_field_array = this._getFetchFieldsFromColumns(this.additional_fields_for_tasks);
             
-        return Ext.Array.push(base_field_array,story_field_array);
+        return Ext.Array.push(base_field_array,story_field_array,task_field_array);
     },
     _getModelFields: function() {
         var fields = [
@@ -204,6 +204,10 @@ Ext.define('CustomApp', {
         ];
         
         Ext.Array.each(this.additional_fields_for_stories,function(field){
+            fields.push({name:field.dataIndex, type:'string'});
+        });
+                
+        Ext.Array.each(this.additional_fields_for_tasks,function(field){
             fields.push({name:field.dataIndex, type:'string'});
         });
         
@@ -248,6 +252,11 @@ Ext.define('CustomApp', {
             });
         }
         
+        Ext.Array.each(this.additional_fields_for_tasks,function(column) {
+            time_object[column.dataIndex] = time_entry_item.Task[column.name];
+        });
+            
+        
         return time_object;
     },
     _makeGrid: function(tasks_by_user) {
@@ -291,12 +300,14 @@ Ext.define('CustomApp', {
             {text:'Task ID', dataIndex: 'task_fid', sortable: true, menuDisabled: true },
             {text:'Task Name', dataIndex: 'task_name', sortable: true, menuDisabled: true}
         ];
+        task_columns = Ext.Array.push(task_columns,this.additional_fields_for_tasks);
+
         var workproduct_columns = [
             {text:'WorkProduct ID', dataIndex: 'workproduct_fid', sortable: true, menuDisabled: true},
             {text:'WorkProduct Name', dataIndex: 'workproduct_name', sortable: true, menuDisabled: true}
         ];
         
-        var workproduct_columns = Ext.Array.push(workproduct_columns,this.additional_fields_for_stories);
+        workproduct_columns = Ext.Array.push(workproduct_columns,this.additional_fields_for_stories);
         
         var feature_columns = [
             {text:'Feature ID', dataIndex: 'feature_fid', sortable: true, menuDisabled: true},
@@ -366,9 +377,11 @@ Ext.define('CustomApp', {
              autoShow: false,
              draggable: true,
              width: 400,
+             height: 400,
              title: 'Settings',
              buttons: [{ 
                 text: 'OK',
+                margin: 10,
                 handler: function(cmp){
                     var settings = {};
                     Ext.Array.each(fields,function(field){
@@ -393,7 +406,7 @@ Ext.define('CustomApp', {
             }],
              items: [
                 {xtype:'container',html: "&nbsp;", padding: 5, margin: 5},
-                {xtype:'container',itemId:'field_box', padding: 5, margin: 5}]
+                {xtype:'container',itemId:'field_box', padding: 5, margin: 5, height:325 }]
          });
          Ext.Array.each(fields,function(field){
             me.settings_dialog.down('#field_box').add(field);
@@ -443,12 +456,26 @@ Ext.define('CustomApp', {
         
         return [
             {
+                name: 'additional_fields_for_taks',
+                xtype: 'rallyfieldpicker',
+                modelTypes: ['Task'],
+                fieldLabel: 'Additional fields for Tasks:',
+                _shouldShowField: _ignoreTextFields,
+                margin: 10,
+                width: 300,
+                alwaysExpanded: false,
+                labelWidth: 150,
+                readyEvent: 'ready' //event fired to signify readiness
+            },
+            {
                 name: 'additional_fields_for_stories',
                 xtype: 'rallyfieldpicker',
                 modelTypes: ['HierarchicalRequirement'],
                 fieldLabel: 'Additional fields for Stories:',
                 _shouldShowField: _ignoreTextFields,
                 width: 300,
+                margin: 10,
+                alwaysExpanded: false,
                 labelWidth: 150,
                 readyEvent: 'ready' //event fired to signify readiness
             }
