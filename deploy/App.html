@@ -3,11 +3,11 @@
 <head>
     <title>Task Time Summary</title>
     <!--  (c) 2014 Rally Software Development Corp.  All Rights Reserved. -->
-    <!--  Build Date: Tue Apr 15 2014 19:19:20 GMT-0700 (PDT) -->
+    <!--  Build Date: Tue Apr 15 2014 19:36:48 GMT-0700 (PDT) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Tue Apr 15 2014 19:19:20 GMT-0700 (PDT)";
-        var CHECKSUM = 57601077909;
+        var APP_BUILD_DATE = "Tue Apr 15 2014 19:36:48 GMT-0700 (PDT)";
+        var CHECKSUM = 63819971189;
     </script>
     
     <script type="text/javascript" src="/apps/2.0rc2/sdk.js"></script>
@@ -642,6 +642,8 @@ Ext.define('CustomApp', {
         this.logger.log("_getTimesheets");
         this.additional_fields_for_stories = this._getFieldsFromString('additional_fields_for_stories',this.getSetting('additional_fields_for_stories'));
         this.additional_fields_for_tasks = this._getFieldsFromString('additional_fields_for_tasks',this.getSetting('additional_fields_for_tasks'));
+        this.additional_fields_for_initiatives = this._getFieldsFromString('additional_fields_for_initiatives',this.getSetting('additional_fields_for_initiatives'));
+        this.additional_fields_for_features = this._getFieldsFromString('additional_fields_for_features',this.getSetting('additional_fields_for_features'));
                 
         var start_end = this._getTimeRange();
 
@@ -709,8 +711,10 @@ Ext.define('CustomApp', {
             
         var story_field_array = this._getFetchFieldsFromColumns(this.additional_fields_for_stories);
         var task_field_array = this._getFetchFieldsFromColumns(this.additional_fields_for_tasks);
-            
-        return Ext.Array.push(base_field_array,story_field_array,task_field_array);
+        var feature_field_array = this._getFetchFieldsFromColumns(this.additional_fields_for_features);
+        var initiative_field_array = this._getFetchFieldsFromColumns(this.additional_fields_for_initiatives);
+
+        return Ext.Array.push(base_field_array,story_field_array,task_field_array,feature_field_array,initiative_field_array);
     },
     _getModelFields: function() {
         var fields = [
@@ -733,7 +737,14 @@ Ext.define('CustomApp', {
         Ext.Array.each(this.additional_fields_for_tasks,function(field){
             fields.push({name:field.dataIndex, type:'string'});
         });
+ 
+        Ext.Array.each(this.additional_fields_for_features,function(field){
+            fields.push({name:field.dataIndex, type:'string'});
+        });
         
+        Ext.Array.each(this.additional_fields_for_initiatives,function(field){
+            fields.push({name:field.dataIndex, type:'string'});
+        });
         return fields;
     },
     _getFetchFieldsFromColumns: function(columns) {
@@ -774,6 +785,18 @@ Ext.define('CustomApp', {
                 time_object[column.dataIndex] = workproduct[column.name];
             });
         }
+        
+        if ( feature && feature.FormattedID ) {
+            Ext.Array.each(this.additional_fields_for_features,function(column) {
+                time_object[column.dataIndex] = feature[column.name];
+            });
+        }
+         
+        if ( initiative && initiative.FormattedID ) {
+            Ext.Array.each(this.additional_fields_for_initiatives,function(column) {
+                time_object[column.dataIndex] = initiative[column.name];
+            });
+        }    
         
         Ext.Array.each(this.additional_fields_for_tasks,function(column) {
             time_object[column.dataIndex] = time_entry_item.Task[column.name];
@@ -836,10 +859,16 @@ Ext.define('CustomApp', {
             {text:'Feature ID', dataIndex: 'feature_fid', sortable: true, menuDisabled: true},
             {text:'Feature Name', dataIndex: 'feature_name', sortable: true, menuDisabled: true}
         ];
+        
+        feature_columns = Ext.Array.push(feature_columns,this.additional_fields_for_features);
+
         var initiative_columns = [        
             {text:'Initiative ID', dataIndex: 'initiative_fid', sortable: true, menuDisabled: true},
             {text:'Intitiative Name', dataIndex: 'initiative_name', sortable: true, menuDisabled: true}
         ];
+        
+       initiative_columns = Ext.Array.push(initiative_columns,this.additional_fields_for_initiatives);
+
         var additional_columns = [
             {text:'Hours', dataIndex:'total'}
         ];
@@ -979,7 +1008,7 @@ Ext.define('CustomApp', {
         
         return [
             {
-                name: 'additional_fields_for_taks',
+                name: 'additional_fields_for_task',
                 xtype: 'rallyfieldpicker',
                 modelTypes: ['Task'],
                 fieldLabel: 'Additional fields for Tasks:',
@@ -1009,33 +1038,40 @@ Ext.define('CustomApp', {
                     ready: function(picker){ picker.collapse(); }
                 },
                 readyEvent: 'ready' //event fired to signify readiness
+            },
+            {
+                name: 'additional_fields_for_features',
+                xtype: 'rallyfieldpicker',
+                modelTypes: ['PortfolioItem'],
+                fieldLabel: 'Additional fields for Features:',
+                _shouldShowField: _ignoreTextFields,
+                margin: 10,
+                width: 300,
+                alwaysExpanded: false,
+                autoExpand: true,
+                labelWidth: 150,
+                listeners: {
+                    ready: function(picker){ picker.collapse(); }
+                },
+                readyEvent: 'ready' //event fired to signify readiness
+            },
+            {
+                name: 'additional_fields_for_initiatives',
+                xtype: 'rallyfieldpicker',
+                modelTypes: ['PortfolioItem'],
+                fieldLabel: 'Additional fields for Initiatives:',
+                _shouldShowField: _ignoreTextFields,
+                margin: '10px 10px 200px 10px',
+                width: 300,
+                alwaysExpanded: false,
+                autoExpand: true,
+                labelWidth: 150,
+                listeners: {
+                    ready: function(picker){ picker.collapse(); }
+                },
+                readyEvent: 'ready' //event fired to signify readiness
             }
         ];
-    },
-    /**
-     * Flip the app into settings mode.  Draws a settings form with the fields
-     * returned from #getSettingsFields.
-     * @param options
-     * @returns {*}
-     */
-    showSettings: function(options) {
-        options.height = 300;
-        this._appSettings = Ext.create('Rally.app.AppSettings', Ext.apply({
-            fields: this.getSettingsFields(),
-            settings: this.getSettings(),
-            defaultSettings: this.getDefaultSettings(),
-            context: this.getContext(),
-            settingsScope: this.settingsScope,
-            height: 300
-        }, options));
-
-        this._appSettings.on('cancel', this._hideSettings, this);
-        this._appSettings.on('save', this._onSettingsSaved, this);
-
-        this.hide();
-        this.up().add(this._appSettings);
-
-        return this._appSettings;
     }
 });
 
