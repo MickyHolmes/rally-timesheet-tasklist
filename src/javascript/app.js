@@ -464,7 +464,11 @@ Ext.define('CustomApp', {
                 margin: 10,
                 width: 300,
                 alwaysExpanded: false,
+                autoExpand: true,
                 labelWidth: 150,
+                listeners: {
+                    ready: function(picker){ picker.collapse(); }
+                },
                 readyEvent: 'ready' //event fired to signify readiness
             },
             {
@@ -473,12 +477,41 @@ Ext.define('CustomApp', {
                 modelTypes: ['HierarchicalRequirement'],
                 fieldLabel: 'Additional fields for Stories:',
                 _shouldShowField: _ignoreTextFields,
-                width: 300,
                 margin: 10,
+                width: 300,
                 alwaysExpanded: false,
+                autoExpand: true,
                 labelWidth: 150,
+                listeners: {
+                    ready: function(picker){ picker.collapse(); }
+                },
                 readyEvent: 'ready' //event fired to signify readiness
             }
         ];
+    },
+    /**
+     * Flip the app into settings mode.  Draws a settings form with the fields
+     * returned from #getSettingsFields.
+     * @param options
+     * @returns {*}
+     */
+    showSettings: function(options) {
+        options.height = 300;
+        this._appSettings = Ext.create('Rally.app.AppSettings', Ext.apply({
+            fields: this.getSettingsFields(),
+            settings: this.getSettings(),
+            defaultSettings: this.getDefaultSettings(),
+            context: this.getContext(),
+            settingsScope: this.settingsScope,
+            height: 300
+        }, options));
+
+        this._appSettings.on('cancel', this._hideSettings, this);
+        this._appSettings.on('save', this._onSettingsSaved, this);
+
+        this.hide();
+        this.up().add(this._appSettings);
+
+        return this._appSettings;
     }
 });
