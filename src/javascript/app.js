@@ -121,7 +121,8 @@ Ext.define('CustomApp', {
         this.additional_fields_for_tasks = this._getFieldsFromString('additional_fields_for_tasks',this.getSetting('additional_fields_for_tasks'));
         this.additional_fields_for_initiatives = this._getFieldsFromString('additional_fields_for_initiatives',this.getSetting('additional_fields_for_initiatives'));
         this.additional_fields_for_features = this._getFieldsFromString('additional_fields_for_features',this.getSetting('additional_fields_for_features'));
-                
+        this.show_all_types = this.getSetting('show_all_types');
+
         var start_end = this._getTimeRange();
 
         if ( start_end.length == 2 ) {
@@ -144,7 +145,8 @@ Ext.define('CustomApp', {
                 filters: [
                     {property:'TimeEntryItem.WeekStartDate',operator:'>=',value:start_date},
                     {property:'TimeEntryItem.WeekStartDate',operator:'<=',value:end_date},
-                    {property:'TimeEntryItem.Task',operator:'!=',value:""}
+                    // BM 
+                    // {property:'TimeEntryItem.Task',operator:'!=',value:""}
                 ],
                 fetch: fetch,
                 listeners: {
@@ -161,11 +163,25 @@ Ext.define('CustomApp', {
                             if (check_start.localeCompare(time_item_date) < 1 && check_end.localeCompare(time_item_date) > -1 ) {
                                 
                                 var time_entry_item = record.get('TimeEntryItem');
-                                if ( time_entry_item.Task === null ) {
+                                // if ( time_entry_item.Task === null ) {
+                                if ( me.show_all_types == false && time_entry_item.Task === null ) {
                                     me.logger.log('  SKIP null Task');
                                 } else {
+                                    // BM
+                                    console.log("item",time_entry_item);
                                     var user = time_entry_item.User || { ObjectID:-1, UserName:'missing user'};
-                                    var key = time_entry_item.Task.FormattedID + "_" + user.ObjectID;
+                                    // var key = time_entry_item.Task.FormattedID + "_" + user.ObjectID;
+                                    // BM 
+                                    var key = null;
+                                    if ( !_.isNull(time_entry_item.Task) ) {
+                                        key = time_entry_item.Task.FormattedID + "_" + user.ObjectID;
+                                    } else if ( !_.isNull(time_entry_item.WorkProduct) )  {
+                                        key = time_entry_item.WorkProduct.FormattedID + "_" + user.ObjectID;
+                                    } else if ( !_.isNull(time_entry_item.ProjectDisplayString) ) {
+                                        key = time_entry_item.ProjectDisplayString + "_" + user.ObjectID;
+                                    }
+                                    // var key = ( !_.isNull(time_entry_item.Task) ? time_entry_item.Task.FormattedID : time_entry_item.WorkProduct.FormattedID ) + "_" + user.ObjectID;
+                                    console.log("key",key);
                                     if ( ! tasks_by_user[key] ) {
                                         tasks_by_user[key] = me._getObjectFromTimeValue( record );
                                     }   
@@ -182,9 +198,13 @@ Ext.define('CustomApp', {
         }
     },
     _getFetchFields: function() {
-        var base_field_array = ['User','UserName','ObjectID','Hours',
+        // var base_field_array = ['User','UserName','ObjectID','Hours',
+        //     'TimeEntryItem','Task','FormattedID','Name','WorkProduct',
+        //     'Feature','Parent','DateVal', 'Requirement'];
+        var base_field_array = ['User','UserName','EmailAddress','ObjectID','Hours',
             'TimeEntryItem','Task','FormattedID','Name','WorkProduct',
-            'Feature','Parent','DateVal', 'Requirement'];
+            'Feature','Parent','DateVal', 'Requirement','Project','ProjectDisplayString'];
+
             
         var story_field_array = this._getFetchFieldsFromColumns(this.additional_fields_for_stories);
         var task_field_array = this._getFetchFieldsFromColumns(this.additional_fields_for_tasks);
@@ -242,13 +262,17 @@ Ext.define('CustomApp', {
             feature = workproduct.Requirement.Feature || { FormattedID: "", Name: "" };
         }
         
+        // bm - set workproduct name if the time is recorded against a project.
+        // workproduct.Name = !_.isNull(time_entry_item.ProjectDisplayString) ? time_entry_item.ProjectDisplayString : workproduct.Name
+
         var initiative = feature.Parent || { FormattedID: "", Name: "" };
 
         var time_object =  {
             total: 0,
-            user: user.UserName || "Deleted User: " + user._refObjectName,
-            task_fid: time_entry_item.Task.FormattedID,
-            task_name: time_entry_item.Task.Name,
+            user: user.EmailAddress || "Deleted User: " + user._refObjectName,
+            // user: user.UserName || "Deleted User: " + user._refObjectName,
+            task_fid: (!_.isNull(time_entry_item.Task) ? time_entry_item.Task.FormattedID : ""),
+            task_name: (!_.isNull(time_entry_item.Task) ? time_entry_item.Task.Name : ""),
             workproduct_fid: workproduct.FormattedID,
             workproduct_name: workproduct.Name,
             feature_fid: feature.FormattedID,
@@ -538,7 +562,7 @@ Ext.define('CustomApp', {
                 modelTypes: ['PortfolioItem'],
                 fieldLabel: 'Additional fields for Initiatives:',
                 _shouldShowField: _ignoreTextFields,
-                margin: '10px 10px 200px 10px',
+                margin: '10px 10px 20px 10px',
                 width: 300,
                 alwaysExpanded: false,
                 autoExpand: true,
@@ -547,6 +571,16 @@ Ext.define('CustomApp', {
                     ready: function(picker){ picker.collapse(); }
                 },
                 readyEvent: 'ready' //event fired to signify readiness
+            },
+            {
+                name: 'show_all_types',
+                xtype: 'rallycheckboxfield',
+                fieldLabel: 'Set Check to include all types.',
+                margin: '10px 10px 200px 10px',
+                width: 300,
+                alwaysExpanded: false,
+                autoExpand: true,
+                labelWidth: 150
             }
         ];
     }
